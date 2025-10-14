@@ -14,6 +14,9 @@ function parseAmount(value: string): number {
 
 const FLOW_STORAGE_KEY = 'berkeley_budget_flow_data';
 
+// Supabase-backed storage (fallback to localStorage import if empty)
+import { supabase } from './supabaseClient';
+
 export async function importFlowData(): Promise<FlowDataItem[]> {
   try {
     const fileUrl = new URL('../data/FY26 Budget - Sheet1.csv', import.meta.url);
@@ -64,9 +67,18 @@ export async function importFlowData(): Promise<FlowDataItem[]> {
       });
     }
 
+    // Save to Supabase (idempotent-ish simple insert)
+    if (flowItems.length > 0) {
+      const { error } = await supabase.from('budget_flows').insert(flowItems);
+      if (error) {
+        console.error('Supabase insert error (flows):', error);
+      }
+    }
+
     localStorage.setItem(FLOW_STORAGE_KEY, JSON.stringify(flowItems));
-    console.log(`✅ Successfully imported ${flowItems.length} flow items`);
-    
+    if (import.meta.env.DEV) {
+      console.log(`✅ Successfully imported ${flowItems.length} flow items`);
+    }
     return flowItems;
   } catch (error) {
     console.error('Error importing flow data:', error);
@@ -80,15 +92,21 @@ export async function checkFlowDataExists(): Promise<boolean> {
 }
 
 export async function getFlowData(): Promise<FlowDataItem[]> {
-  const stored = localStorage.getItem(FLOW_STORAGE_KEY);
-  if (!stored) {
-    return [];
+  // Try Supabase first
+  const { data, error } = await supabase
+    .from('budget_flows')
+    .select('classification, description, fy2025, fy2026');
+  if (!error && data && data.length > 0) {
+    return data as FlowDataItem[];
   }
-  
+
+  // Fallback to localStorage
+  const stored = localStorage.getItem(FLOW_STORAGE_KEY);
+  if (!stored) return [];
   try {
     return JSON.parse(stored);
-  } catch (error) {
-    console.error('Error parsing stored flow data:', error);
+  } catch (e) {
+    console.error('Error parsing stored flow data:', e);
     return [];
   }
 }
