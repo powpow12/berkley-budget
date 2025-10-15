@@ -120,7 +120,7 @@ function App() {
 
     // Load budget items
     const hasData = await checkDataExists();
-    if (!hasData) {
+    if (!hasData && import.meta.env.DEV) {
       setImporting(true);
       try {
         await importBudgetData();
@@ -146,7 +146,7 @@ function App() {
 
     // Load flow data
     const hasFlowData = await checkFlowDataExists();
-    if (!hasFlowData) {
+    if (!hasFlowData && import.meta.env.DEV) {
       try {
         await importFlowData();
       } catch (error) {

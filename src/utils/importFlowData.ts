@@ -87,6 +87,13 @@ export async function importFlowData(): Promise<FlowDataItem[]> {
 }
 
 export async function checkFlowDataExists(): Promise<boolean> {
+  // Prefer DB check first
+  const { count, error } = await supabase
+    .from('budget_flows')
+    .select('description', { count: 'exact', head: true });
+  if (!error && typeof count === 'number') {
+    return count > 0;
+  }
   const stored = localStorage.getItem(FLOW_STORAGE_KEY);
   return stored !== null && stored !== '';
 }
